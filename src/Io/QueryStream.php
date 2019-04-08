@@ -27,27 +27,28 @@ class QueryStream extends EventEmitter implements ReadableStreamInterface
         $this->connection = $connection;
 
         // forward result set rows until result set end
-        $command->on('result', function ($row) {
-            if (!$this->started && $this->paused) {
-                $this->connection->pause();
+        $self = $this;
+        $command->on('result', function ($row) use($self) {
+            if (!$self->started && $self ->paused) {
+                $self ->connection->pause();
             }
-            $this->started = true;
+            $self ->started = true;
 
-            $this->emit('data', array($row));
+            $self ->emit('data', array($row));
         });
-        $command->on('end', function () {
-            $this->emit('end');
-            $this->close();
+        $command->on('end', function () use($self) {
+            $self->emit('end');
+            $self->close();
         });
 
         // status reply (response without result set) ends stream without data
-        $command->on('success', function () {
-            $this->emit('end');
-            $this->close();
+        $command->on('success', function () use($self) {
+            $self->emit('end');
+            $self->close();
         });
-        $command->on('error', function ($err) {
-            $this->emit('error', array($err));
-            $this->close();
+        $command->on('error', function ($err) use($self) {
+            $self->emit('error', array($err));
+            $self->close();
         });
     }
 
@@ -87,7 +88,7 @@ class QueryStream extends EventEmitter implements ReadableStreamInterface
         $this->removeAllListeners();
     }
 
-    public function pipe(WritableStreamInterface $dest, array $options = [])
+    public function pipe(WritableStreamInterface $dest, array $options = array())
     {
         return Util::pipe($this, $dest, $options);
     }

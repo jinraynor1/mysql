@@ -32,7 +32,7 @@ class Connection extends EventEmitter implements ConnectionInterface
     /**
      * @var integer
      */
-    private $state = self::STATE_AUTHENTICATED;
+    public $state = self::STATE_AUTHENTICATED;
 
     /**
      * @var SocketConnectionInterface
@@ -50,8 +50,8 @@ class Connection extends EventEmitter implements ConnectionInterface
         $this->stream   = $stream;
         $this->executor = $executor;
 
-        $stream->on('error', [$this, 'handleConnectionError']);
-        $stream->on('close', [$this, 'handleConnectionClosed']);
+        $stream->on('error', array($this, 'handleConnectionError'));
+        $stream->on('close', array($this, 'handleConnectionClosed'));
     }
 
     /**
@@ -122,8 +122,9 @@ class Connection extends EventEmitter implements ConnectionInterface
 
     public function ping()
     {
-        return new Promise(function ($resolve, $reject) {
-            $this->_doCommand(new PingCommand())
+        $self = $this;
+        return new Promise(function ($resolve, $reject) use($self) {
+            $self->_doCommand(new PingCommand())
                 ->on('error', function ($reason) use ($reject) {
                     $reject($reason);
                 })
@@ -135,18 +136,19 @@ class Connection extends EventEmitter implements ConnectionInterface
 
     public function quit()
     {
-        return new Promise(function ($resolve, $reject) {
-            $this->_doCommand(new QuitCommand())
+        $self = $this;
+        return new Promise(function ($resolve, $reject) use($self) {
+            $self->_doCommand(new QuitCommand())
                 ->on('error', function ($reason) use ($reject) {
                     $reject($reason);
                 })
-                ->on('success', function () use ($resolve) {
-                    $this->state = self::STATE_CLOSED;
-                    $this->emit('end', [$this]);
-                    $this->emit('close', [$this]);
+                ->on('success', function () use ($resolve, $self) {
+                    $self->state = $self::STATE_CLOSED;
+                    $self->emit('end', array($self));
+                    $self->emit('close', array($self));
                     $resolve();
                 });
-            $this->state = self::STATE_CLOSEING;
+            $self->state = $self::STATE_CLOSEING;
         });
     }
 
@@ -179,7 +181,7 @@ class Connection extends EventEmitter implements ConnectionInterface
      */
     public function handleConnectionError($err)
     {
-        $this->emit('error', [$err, $this]);
+        $this->emit('error', array($err, $this));
     }
 
     /**
@@ -189,7 +191,7 @@ class Connection extends EventEmitter implements ConnectionInterface
     public function handleConnectionClosed()
     {
         if ($this->state < self::STATE_CLOSEING) {
-            $this->emit('error', [new \RuntimeException('mysql server has gone away'), $this]);
+            $this->emit('error', array(new \RuntimeException('mysql server has gone away'), $this));
         }
 
         $this->close();
@@ -200,7 +202,7 @@ class Connection extends EventEmitter implements ConnectionInterface
      * @return CommandInterface
      * @throws Exception Can't send command
      */
-    protected function _doCommand(CommandInterface $command)
+    public function _doCommand(CommandInterface $command)
     {
         if ($this->state === self::STATE_AUTHENTICATED) {
             return $this->executor->enqueue($command);

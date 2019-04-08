@@ -17,7 +17,7 @@ class LazyConnection extends EventEmitter implements ConnectionInterface
 {
     private $factory;
     private $uri;
-    private $connecting;
+    public $connecting;
     private $closed = false;
     private $busy = false;
 
@@ -28,7 +28,7 @@ class LazyConnection extends EventEmitter implements ConnectionInterface
 
     private $loop;
     private $idlePeriod = 60.0;
-    private $idleTimer;
+    public $idleTimer;
     private $pending = 0;
 
     public function __construct(Factory $factory, $uri, LoopInterface $loop)
@@ -55,27 +55,27 @@ class LazyConnection extends EventEmitter implements ConnectionInterface
             $this->disconnecting->close();
             $this->disconnecting = null;
         }
-
+        $self = $this;
         $this->connecting = $connecting = $this->factory->createConnection($this->uri);
-        $this->connecting->then(function (ConnectionInterface $connection) {
+        $this->connecting->then(function (ConnectionInterface $connection) use($self) {
             // connection completed => remember only until closed
-            $connection->on('close', function () {
-                $this->connecting = null;
+            $connection->on('close', function () use($self) {
+                $self->connecting = null;
 
-                if ($this->idleTimer !== null) {
-                    $this->loop->cancelTimer($this->idleTimer);
-                    $this->idleTimer = null;
+                if ($self->idleTimer !== null) {
+                    $self->loop->cancelTimer($self->idleTimer);
+                    $self->idleTimer = null;
                 }
             });
-        }, function () {
+        }, function () use($self) {
             // connection failed => discard connection attempt
-            $this->connecting = null;
+            $self->connecting = null;
         });
 
         return $connecting;
     }
 
-    private function awake()
+    public function awake()
     {
         ++$this->pending;
 
@@ -85,66 +85,66 @@ class LazyConnection extends EventEmitter implements ConnectionInterface
         }
     }
 
-    private function idle()
+    public function idle()
     {
         --$this->pending;
-
+        $self = $this;
         if ($this->pending < 1 && $this->idlePeriod >= 0) {
-            $this->idleTimer = $this->loop->addTimer($this->idlePeriod, function () {
-                $this->connecting->then(function (ConnectionInterface $connection) {
-                    $this->disconnecting = $connection;
+            $this->idleTimer = $this->loop->addTimer($this->idlePeriod, function () use($self) {
+                $self->connecting->then(function (ConnectionInterface $connection) use($self) {
+                    $self->disconnecting = $connection;
                     $connection->quit()->then(
-                        function () {
+                        function () use($self) {
                             // successfully disconnected => remove reference
-                            $this->disconnecting = null;
+                            $self->disconnecting = null;
                         },
-                        function () use ($connection) {
+                        function () use ($connection, $self) {
                             // soft-close failed => force-close connection
                             $connection->close();
-                            $this->disconnecting = null;
+                            $self->disconnecting = null;
                         }
                     );
                 });
-                $this->connecting = null;
-                $this->idleTimer = null;
+                $self->connecting = null;
+                $self->idleTimer = null;
             });
         }
     }
 
-    public function query($sql, array $params = [])
+    public function query($sql, array $params = array())
     {
         if ($this->closed) {
             return \React\Promise\reject(new Exception('Connection closed'));
         }
-
-        return $this->connecting()->then(function (ConnectionInterface $connection) use ($sql, $params) {
-            $this->awake();
+        $self = $this;
+        return $this->connecting()->then(function (ConnectionInterface $connection) use ($sql, $params, $self) {
+            $self->awake();
             return $connection->query($sql, $params)->then(
-                function (QueryResult $result) {
-                    $this->idle();
+                function (QueryResult $result) use($self) {
+                    $self->idle();
                     return $result;
                 },
-                function (\Exception $e) {
-                    $this->idle();
+                function (\Exception $e) use($self) {
+                    $self->idle();
                     throw $e;
                 }
             );
         });
     }
 
-    public function queryStream($sql, $params = [])
+    public function queryStream($sql, $params = array())
     {
         if ($this->closed) {
             throw new Exception('Connection closed');
         }
-
+        $self = $this;
         return \React\Promise\Stream\unwrapReadable(
-            $this->connecting()->then(function (ConnectionInterface $connection) use ($sql, $params) {
+            $this->connecting()->then(function (ConnectionInterface $connection) use ($sql, $params, $self) {
                 $stream = $connection->queryStream($sql, $params);
 
-                $this->awake();
-                $stream->on('close', function () {
-                    $this->idle();
+                $self->awake();
+                $stream->on('close', function () use($self) {
+                    $self->idle();
                 });
 
                 return $stream;
@@ -157,15 +157,15 @@ class LazyConnection extends EventEmitter implements ConnectionInterface
         if ($this->closed) {
             return \React\Promise\reject(new Exception('Connection closed'));
         }
-
-        return $this->connecting()->then(function (ConnectionInterface $connection) {
-            $this->awake();
+        $self = $this;
+        return $this->connecting()->then(function (ConnectionInterface $connection) use($self) {
+            $self->awake();
             return $connection->ping()->then(
-                function () {
-                    $this->idle();
+                function () use($self) {
+                    $self->idle();
                 },
-                function (\Exception $e) {
-                    $this->idle();
+                function (\Exception $e) use($self){
+                    $self->idle();
                     throw $e;
                 }
             );
@@ -183,15 +183,15 @@ class LazyConnection extends EventEmitter implements ConnectionInterface
             $this->close();
             return \React\Promise\resolve();
         }
-
-        return $this->connecting()->then(function (ConnectionInterface $connection) {
-            $this->awake();
+        $self = $this;
+        return $this->connecting()->then(function (ConnectionInterface $connection) use($self) {
+            $self->awake();
             return $connection->quit()->then(
-                function () {
-                    $this->close();
+                function () use($self) {
+                    $self->close();
                 },
-                function (\Exception $e) {
-                    $this->close();
+                function (\Exception $e) use($self) {
+                    $self->close();
                     throw $e;
                 }
             );

@@ -187,7 +187,7 @@ class Factory
             $deferred->reject(new \RuntimeException('Unable to connect to database server', 0, $error));
         });
 
-        $args = [];
+        $args = array();
         if (isset($parts['query'])) {
             parse_str($parts['query'], $args);
         }

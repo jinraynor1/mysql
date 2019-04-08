@@ -11,7 +11,7 @@ class Query
 
     private $builtSql;
 
-    private $params = [];
+    private $params = array();
 
     private $escapeChars = array(
             "\x00"   => "\\0",
@@ -92,7 +92,7 @@ class Query
                 $value = "'" . $this->escape($value) . "'";
                 break;
             case 'array':
-                $nvalue = [];
+                $nvalue = array();
                 foreach ($value as $v) {
                     $nvalue[] = $this->resolveValueForSql($v);
                 }

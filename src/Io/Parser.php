@@ -64,7 +64,7 @@ class Parser
 
     protected $rsState = 0;
     protected $pctSize = 0;
-    protected $resultFields = [];
+    protected $resultFields = array();
 
     protected $insertId;
     protected $affectedRows;
@@ -90,8 +90,9 @@ class Parser
         $this->executor = $executor;
 
         $this->buffer   = new Buffer();
-        $executor->on('new', function () {
-            $this->nextRequest();
+        $self = $this;
+        $executor->on('new', function () use($self) {
+            $self->nextRequest();
         });
     }
 
@@ -236,14 +237,14 @@ packet:
                     $this->rsState = self::RS_STATE_FIELD;
                 } elseif ($this->rsState === self::RS_STATE_FIELD) {
                     $this->debug('Result set field packet');
-                    $field = [
+                    $field = array(
                         'catalog'   => $this->buffer->readStringLen(),
                         'db'        => $this->buffer->readStringLen(),
                         'table'     => $this->buffer->readStringLen(),
                         'org_table' => $this->buffer->readStringLen(),
                         'name'      => $this->buffer->readStringLen(),
                         'org_name'  => $this->buffer->readStringLen()
-                    ];
+                    );
 
                     $this->buffer->skip(1); // 0xC0
                     $field['charset']     = $this->buffer->readInt2();
@@ -255,7 +256,7 @@ packet:
                     $this->resultFields[] = $field;
                 } elseif ($this->rsState === self::RS_STATE_ROW) {
                     $this->debug('Result set row data');
-                    $row = [];
+                    $row = array();
                     foreach ($this->resultFields as $field) {
                         $row[$field['name']] = $this->buffer->readStringLen();
                     }
@@ -296,7 +297,7 @@ packet:
         $command->emit('end');
 
         $this->rsState      = self::RS_STATE_HEADER;
-        $this->resultFields = [];
+        $this->resultFields = array();
     }
 
     protected function onSuccess()
@@ -334,7 +335,7 @@ packet:
         return $this->stream->write($this->buffer->buildInt3(\strlen($packet)) . $this->buffer->buildInt1($this->seq++) . $packet);
     }
 
-    protected function nextRequest($isHandshake = false)
+    public function nextRequest($isHandshake = false)
     {
         if (!$isHandshake && $this->phase != self::PHASE_HANDSHAKED) {
             return false;
