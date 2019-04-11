@@ -24,7 +24,6 @@
     },
     "autoload": {
         "psr-4": {
-            "React\\Stream\\": "src/Patches/React/Stream",
             "React\\MySQL\\": "src"
 
         }
