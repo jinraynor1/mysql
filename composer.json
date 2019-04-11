@@ -5,7 +5,7 @@
     },
     "minimum-stability": "dev",
     "prefer-stable": true,	
-    "name": "react/mysql",
+    "name": "jinraynor1/reactphp_mysql",
     "description": "Async MySQL database client for ReactPHP.",
     "keywords": ["mysql", "database", "async", "reactphp"],
     "license": "MIT",
